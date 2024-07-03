@@ -66,9 +66,7 @@ export default {
 
     computed: {
         style() {
-            return this.show
-                ? { top: `${this.top}px`, left: `${this.left}px` }
-                : null;
+            return { top: `${this.top}px`, left: `${this.left}px` };
         }
     },
 
@@ -117,6 +115,9 @@ export default {
                 parentElementByClassName(this.activeSubMenu, 'v-context__sub').dispatchEvent(new Event('mouseleave'));
             }
 
+            setTimeout(() => {
+                this.data = null;
+            }, 300);
             this.resetData();
             this.removeHoverEventListener(this.$el);
 
@@ -216,12 +217,12 @@ export default {
             }
         },
 
-        open(event, data) {
+        open(event, data, attach, placement, offset) {
             this.data = data;
             this.show = true;
 
             this.$nextTick(() => {
-                [this.top, this.left] = this.positionMenu(event.clientY, event.clientX, this.$el);
+                [this.top, this.left] = this.positionMenu(event.clientY, event.clientX, this.$el, attach, placement, offset);
 
                 this.$el.focus();
                 this.setItemRoles();
@@ -252,7 +253,10 @@ export default {
             }
 
             // first set the display and afterwards execute position calculation for correct element offsets
-            subMenuElement.style.display = 'block';
+            // subMenuElement.style.display = 'block';
+            subMenuElement.style.opacity = 1;
+            subMenuElement.style.width = 'auto';
+            subMenuElement.style.height = 'auto';
 
             let [elementTop, elementLeft] = this.positionMenu(bcr.top, bcr.right - this.subMenuOffset, subMenuElement);
 
@@ -266,6 +270,13 @@ export default {
             const subMenuElement = this.getSubMenuElementByEvent(event),
                   parentMenu = parentElementByClassName(subMenuElement, 'v-context');
 
+                  subMenuElement.style.opacity = 0;
+
+                  setTimeout(() => {
+                    subMenuElement.style.width = 0;
+                    subMenuElement.style.height = 0;
+                  }, 300);
+
             // if a sub menu is closed and it's not the currently active sub menu (eg. a lowe layered sub menu closed
             // by a mouseleave event) close all nested sub menus
             if (this.activeSubMenu !== subMenuElement) {
@@ -275,7 +286,7 @@ export default {
                 }
             }
 
-            subMenuElement.style.display = 'none';
+            // subMenuElement.style.display = 'none';
 
             // check if a parent menu exists and the parent menu is a sub menu to keep track of the correct sub menu
             this.activeSubMenu = parentMenu && parentElementByClassName(parentMenu, 'v-context__sub')
@@ -287,7 +298,7 @@ export default {
             return event.target.getElementsByTagName('ul')[0];
         },
 
-        positionMenu(top, left, element) {
+        positionMenu(top, left, element, attach, placement = 'bottom-end', offset = 0) {
             const elementHeight = this.useScrollHeight ? element.scrollHeight : element.offsetHeight;
             const largestHeight = window.innerHeight - elementHeight - this.heightOffset;
 
@@ -300,6 +311,18 @@ export default {
 
             if (left > largestWidth) {
                 left = largestWidth;
+            }
+
+            if (attach) {
+                const rect = attach.getBoundingClientRect();
+                console.log(rect);
+                left = rect.x;
+                top = rect.y
+
+                if (placement === 'bottom-end') {
+                    left = rect.x + rect.width - elementWidth;
+                    top += rect.height + offset;
+                }
             }
 
             return [top, left];
@@ -321,7 +344,7 @@ export default {
         resetData() {
             this.top = null;
             this.left = null;
-            this.data = null;
+            // this.data = null;
             this.show = false;
         },
 
@@ -332,7 +355,42 @@ export default {
                     setAttr(el, 'role', 'menuitem');
                     setAttr(el, 'tabindex', '-1');
                 });
-        }
+        },
+
+        beforeAppear(el) {
+        },
+        appear(el) {
+        },
+        afterAppear() {
+        },
+        beforeEnter(el) {
+            this.$nextTick(() => {
+                el.style.opacity = '0';
+                // el.style.transform = 'scaleY(0)';
+            });
+        },
+        enter(el) {
+            this.$nextTick(() => {
+                el.style.opacity = '1';
+                // el.style.transform = 'scaleY(1)';
+            });
+        },
+        enterCancelled(el) {
+        },
+        afterEnter(el) {
+        },
+        beforeLeave(el) {
+            this.$nextTick(() => {
+                el.style.opacity = '0';
+                // el.style.transform = 'scaleY(0)';
+            });
+        },
+        leave(el) {
+        },
+        leaveCancelled(el) {
+        },
+        afterLeave(el) {
+        },
     },
 
     watch: {
@@ -391,7 +449,7 @@ export default {
             });
         }
 
-        return h(
+        const contextElement = h(
             this.tag,
             {
                 staticClass: 'v-context',
@@ -405,6 +463,26 @@ export default {
                 directives
             },
             [normalizeSlot('default', { data: this.data }, this.$scopedSlots, this.$slots)]
+        );
+
+        return h(
+            'transition',
+            {
+                on: {
+                    beforeAppear: this.beforeAppear,
+                    appear: this.appear,
+                    afterAppear: this.afterAppear,
+                    beforeEnter: this.beforeEnter,
+                    enter: this.enter,
+                    enterCancelled: this.enterCancelled,
+                    afterEnter: this.afterEnter,
+                    beforeLeave: this.beforeLeave,
+                    leave: this.leave,
+                    leaveCancelled: this.leaveCancelled,
+                    afterLeave: this.afterLeave,
+                }
+            },
+            [contextElement]
         );
     }
 };
